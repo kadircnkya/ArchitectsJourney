@@ -1,0 +1,65 @@
+version: '3.9'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: architects-journey-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - architects-journey-net
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: src/backend/ArchitectsJourney.Api/Dockerfile
+    container_name: architects-journey-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=architects_journey;Username=${DB_USER};Password=${DB_PASSWORD};Pooling=true;MaxPoolSize=20
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - architects-journey-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  db:
+    image: postgres:16-alpine
+    container_name: architects-journey-db
+    environment:
+      - POSTGRES_DB=architects_journey
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - architects-journey-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d architects_journey"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  architects-journey-net:
+    driver: bridge

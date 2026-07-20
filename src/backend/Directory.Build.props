@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <LangVersion>latest</LangVersion>
+    <AnalysisMode>All</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CA1030;CA1034;CA1716;CA1000;CA1724;CA1008;CA2225;CA1815;CA2007;CA1031;CA2000;CA1852;CA1848;CS1998;CA1805;CA1515;CA1305;CA5394;CA1707</NoWarn>
+  </PropertyGroup>
+</Project>

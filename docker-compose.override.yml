@@ -1,0 +1,20 @@
+version: '3.9'
+
+# Local development overrides.
+# This file is merged with docker-compose.yml automatically by Docker Compose.
+# Do NOT commit secrets. Use .env for local credentials.
+
+services:
+  api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=architects_journey;Username=dev_user;Password=dev_password_local;Pooling=true;MaxPoolSize=10
+
+  db:
+    environment:
+      - POSTGRES_USER=dev_user
+      - POSTGRES_PASSWORD=dev_password_local
+    ports:
+      # Expose PostgreSQL port to host for local tooling (pgAdmin, psql, etc.)
+      - "5432:5432"

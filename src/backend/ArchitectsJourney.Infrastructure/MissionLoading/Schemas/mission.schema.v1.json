@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://architectsjourney.app/mission.schema.v1.json",
+  "title": "Architects Journey Mission Schema v1",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "version": { "type": "string", "const": "1.0" },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "initialMetrics": {
+      "type": "object",
+      "additionalProperties": { "type": "integer" }
+    },
+    "initialNodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string" },
+          "label": { "type": "string" },
+          "technologyId": { "type": ["string", "null"] }
+        },
+        "required": ["id", "type", "label"]
+      }
+    },
+    "initialEdges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": { "type": "string" },
+          "target": { "type": "string" },
+          "type": { "type": "string" },
+          "communication": { "type": "string" }
+        },
+        "required": ["source", "target", "type", "communication"]
+      }
+    },
+    "decisionPoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "phase": { "type": "string" },
+          "dialogue": { "type": "string" },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "condition": { "type": ["string", "null"] },
+                "metricImpacts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "metric": { "type": "string" },
+                      "label": { "type": "string" },
+                      "value": { "type": "integer" }
+                    },
+                    "required": ["metric", "label", "value"]
+                  }
+                },
+                "graphMutations": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              },
+              "required": ["id", "label", "description", "metricImpacts", "graphMutations"]
+            }
+          }
+        },
+        "required": ["id", "title", "phase", "dialogue", "options"]
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "trigger": { "type": "string" },
+          "condition": { "type": ["string", "null"] },
+          "effects": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["id", "trigger", "effects"]
+      }
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "title",
+    "description",
+    "initialMetrics",
+    "initialNodes",
+    "initialEdges",
+    "decisionPoints",
+    "rules"
+  ],
+  "additionalProperties": false
+}
