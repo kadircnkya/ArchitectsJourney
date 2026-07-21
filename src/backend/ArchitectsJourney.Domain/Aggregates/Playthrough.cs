@@ -37,6 +37,13 @@ public sealed record PlaythroughStateSnapshot
     public required IReadOnlyList<ArchitectureNodeSnapshot> Nodes { get; init; }
     public required IReadOnlyList<ArchitectureEdgeSnapshot> Edges { get; init; }
     public required IReadOnlyList<MissionObjectiveSnapshot> Objectives { get; init; }
+    
+    // Evaluation state
+    public int CurrentScore { get; init; }
+    public bool EvaluationCompleted { get; init; }
+    public DateTimeOffset? EvaluationTimestamp { get; init; }
+    public string? FinalRank { get; init; }
+    public string? MissionResult { get; init; }
 }
 
 /// <summary>
@@ -69,6 +76,12 @@ public sealed class Playthrough : AggregateRoot<Guid>
     public IReadOnlyList<ArchitectsJourney.Domain.Entities.ArchitectureNode> Nodes => _nodes.AsReadOnly();
     public IReadOnlyList<ArchitectsJourney.Domain.ValueObjects.ArchitectureEdge> Edges => _edges.AsReadOnly();
     public IReadOnlyList<ArchitectsJourney.Domain.Entities.MissionObjective> Objectives => _objectives.AsReadOnly();
+
+    public int CurrentScore { get; private set; }
+    public bool EvaluationCompleted { get; private set; }
+    public DateTimeOffset? EvaluationTimestamp { get; private set; }
+    public MissionRank FinalRank { get; private set; }
+    public MissionResult MissionResult { get; private set; }
 
     public void InitializeMetrics(IReadOnlyDictionary<MetricType, int> initialMetrics)
     {
@@ -191,6 +204,28 @@ public sealed class Playthrough : AggregateRoot<Guid>
         obj?.Fail();
     }
 
+    public void UpdateScore(int currentScore)
+    {
+        CurrentScore = currentScore;
+    }
+
+    public void CompleteEvaluation(MissionRank rank, MissionResult result, DateTimeOffset timestamp)
+    {
+        EvaluationCompleted = true;
+        FinalRank = rank;
+        MissionResult = result;
+        EvaluationTimestamp = timestamp;
+    }
+
+    public void ResetEvaluation()
+    {
+        EvaluationCompleted = false;
+        EvaluationTimestamp = null;
+        FinalRank = MissionRank.None;
+        MissionResult = MissionResult.None;
+        CurrentScore = 0;
+    }
+
     public PlaythroughStateSnapshot TakeSnapshot() => new()
     {
         PlaythroughId = Id,
@@ -218,7 +253,12 @@ public sealed class Playthrough : AggregateRoot<Guid>
         {
             Id = o.Id,
             State = o.State.ToString()
-        }).ToList()
+        }).ToList(),
+        CurrentScore = CurrentScore,
+        EvaluationCompleted = EvaluationCompleted,
+        EvaluationTimestamp = EvaluationTimestamp,
+        FinalRank = FinalRank.ToString(),
+        MissionResult = MissionResult.ToString()
     };
 
     public void Restore(PlaythroughStateSnapshot snapshot)
@@ -279,6 +319,20 @@ public sealed class Playthrough : AggregateRoot<Guid>
                 }
                 _objectives.Add(obj);
             }
+        }
+
+        CurrentScore = snapshot.CurrentScore;
+        EvaluationCompleted = snapshot.EvaluationCompleted;
+        EvaluationTimestamp = snapshot.EvaluationTimestamp;
+        
+        if (snapshot.FinalRank != null && Enum.TryParse<MissionRank>(snapshot.FinalRank, out var rank))
+        {
+            FinalRank = rank;
+        }
+
+        if (snapshot.MissionResult != null && Enum.TryParse<MissionResult>(snapshot.MissionResult, out var result))
+        {
+            MissionResult = result;
         }
     }
 }

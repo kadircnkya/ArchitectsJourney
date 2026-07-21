@@ -81,3 +81,37 @@ public sealed record MissionCompletedEvent : DomainEvent
     public override EventPriority Priority => EventPriority.Domain;
     public override string ProducerId => "MISSION_ENGINE";
 }
+
+public sealed record ScoreCalculatedEvent : DomainEvent
+{
+    public override string EventType => "SCORE_CALCULATED";
+    public override EventCategory EventCategory => EventCategory.System;
+    public override string SchemaVersion => "1.0";
+    public override EventPriority Priority => EventPriority.Domain;
+    public override string ProducerId => "SCORING_ENGINE";
+
+    public required int TotalScore { get; init; }
+}
+
+public sealed record RankAssignedEvent : DomainEvent
+{
+    public override string EventType => "RANK_ASSIGNED";
+    public override EventCategory EventCategory => EventCategory.System;
+    public override string SchemaVersion => "1.0";
+    public override EventPriority Priority => EventPriority.Domain;
+    public override string ProducerId => "SCORING_ENGINE";
+
+    public required string Rank { get; init; }
+}
+
+public sealed record MissionEvaluationCompletedEvent : DomainEvent
+{
+    public override string EventType => "MISSION_EVALUATION_COMPLETED";
+    public override EventCategory EventCategory => EventCategory.System;
+    public override string SchemaVersion => "1.0";
+    public override EventPriority Priority => EventPriority.Domain;
+    public override string ProducerId => "SCORING_ENGINE";
+
+    public required string MissionResult { get; init; }
+}
+

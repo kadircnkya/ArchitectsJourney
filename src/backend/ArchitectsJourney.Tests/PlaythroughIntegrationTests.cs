@@ -2,6 +2,7 @@ using ArchitectsJourney.Application.Common;
 using ArchitectsJourney.Application.Contracts;
 using ArchitectsJourney.Application.Events;
 using ArchitectsJourney.Application.Events.Player;
+using ArchitectsJourney.Application.Events.System;
 using ArchitectsJourney.Domain.Aggregates;
 using ArchitectsJourney.Domain.Entities;
 using ArchitectsJourney.Domain.Enums;
@@ -46,6 +47,7 @@ public sealed class PlaythroughIntegrationTests
         services.AddSingleton<ILogger<MetricEngine>>(NullLogger<MetricEngine>.Instance);
         services.AddSingleton<ILogger<ArchitectureEngine>>(NullLogger<ArchitectureEngine>.Instance);
         services.AddSingleton<ILogger<TechnologyHandbookEngine>>(NullLogger<TechnologyHandbookEngine>.Instance);
+        services.AddSingleton<ILogger<ArchitectsJourney.Engines.Scoring.ScoringEngine>>(NullLogger<ArchitectsJourney.Engines.Scoring.ScoringEngine>.Instance);
         services.AddSingleton<ILogger<InMemoryEventBus>>(NullLogger<InMemoryEventBus>.Instance);
 
         // Register Subsystems with Forwarding
@@ -80,6 +82,11 @@ public sealed class PlaythroughIntegrationTests
         services.AddSingleton<ITechnologyValidator, TechnologyValidator>();
         services.AddSingleton<TechnologyHandbookEngine>();
         services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<TechnologyHandbookEngine>());
+
+        services.AddSingleton<ArchitectsJourney.Application.Models.EvaluationOptions>();
+        services.AddSingleton<IScoreCalculator, ArchitectsJourney.Infrastructure.Scoring.ScoreCalculator>();
+        services.AddSingleton<ArchitectsJourney.Engines.Scoring.ScoringEngine>();
+        services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<ArchitectsJourney.Engines.Scoring.ScoringEngine>());
 
         // Event Bus
         services.AddSingleton<IEventBus, InMemoryEventBus>();
@@ -211,6 +218,35 @@ public sealed class PlaythroughIntegrationTests
             TargetEventType = EventTypes.Architecture.Changed,
             RequiresAcknowledgement = true,
             DeliveryOrder = 3
+        });
+        eventBus.RegisterPublisher(new PublisherRegistration
+        {
+            PublisherId = "MISSION_ENGINE",
+            AuthorizedEventTypes = [
+                EventTypes.System.MissionCompleted,
+                "MISSION_OBJECTIVE_COMPLETED",
+                "MISSION_OBJECTIVE_FAILED"
+            ]
+        });
+
+
+        eventBus.RegisterPublisher(new PublisherRegistration
+        {
+            PublisherId = "SCORING_ENGINE",
+            AuthorizedEventTypes = [
+                "SCORE_CALCULATED",
+                "RANK_ASSIGNED",
+                "MISSION_EVALUATION_COMPLETED"
+            ]
+        });
+
+        eventBus.RegisterSubscriber(new SubscriptionRegistration
+        {
+            SubscriberId = "SCORING_ENGINE",
+            Type = SubscriptionType.Type,
+            TargetEventType = EventTypes.System.MissionCompleted,
+            RequiresAcknowledgement = true,
+            DeliveryOrder = 5
         });
 
         // 3. Seed authored mission content
@@ -368,5 +404,37 @@ public sealed class PlaythroughIntegrationTests
         var restoredPlaythrough = new Playthrough(snapshot.PlaythroughId, snapshot.MissionId);
         restoredPlaythrough.Restore(snapshot);
         Assert.Contains("tech_microservices", restoredPlaythrough.DiscoveredTechnologies);
+
+        // 8. Submit MissionCompletedEvent and Verify ScoringEngine execution
+        var missionCompletedEvent = new MissionCompletedEvent
+        {
+            EventId = Guid.NewGuid(),
+            SessionId = context.SessionId,
+            PlaythroughId = context.PlaythroughId,
+            MissionId = context.MissionId,
+            CorrelationId = Guid.NewGuid(),
+            CausationId = techEvent.EventId
+        };
+        var publishMissionResult = await eventBus.PublishAsync(missionCompletedEvent);
+        Assert.True(publishMissionResult.Accepted);
+
+        // Wait for ScoringEngine to process
+        for (int i = 0; i < 20; i++)
+        {
+            playthrough = await playthroughRepo.GetByIdAsync(context.PlaythroughId);
+            if (playthrough != null && playthrough.EvaluationCompleted)
+                break;
+            await Task.Delay(100);
+        }
+
+        Assert.True(playthrough!.EvaluationCompleted);
+        Assert.Equal(MissionResult.Success, playthrough.MissionResult);
+        
+        var postScoreSnapshot = playthrough.TakeSnapshot();
+        var postScoreRestored = new Playthrough(postScoreSnapshot.PlaythroughId, postScoreSnapshot.MissionId);
+        postScoreRestored.Restore(postScoreSnapshot);
+        Assert.True(postScoreRestored.EvaluationCompleted);
+        Assert.Equal(playthrough.CurrentScore, postScoreRestored.CurrentScore);
+        Assert.Equal(playthrough.MissionResult, postScoreRestored.MissionResult);
     }
 }

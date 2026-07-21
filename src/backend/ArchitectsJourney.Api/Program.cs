@@ -65,6 +65,11 @@ builder.Services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<Techno
 builder.Services.AddSingleton<ArchitectsJourney.Engines.Mission.MissionEngine>();
 builder.Services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<ArchitectsJourney.Engines.Mission.MissionEngine>());
 
+builder.Services.AddSingleton<ArchitectsJourney.Application.Models.EvaluationOptions>();
+builder.Services.AddSingleton<IScoreCalculator, ArchitectsJourney.Infrastructure.Scoring.ScoreCalculator>();
+builder.Services.AddSingleton<ArchitectsJourney.Engines.Scoring.ScoringEngine>();
+builder.Services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<ArchitectsJourney.Engines.Scoring.ScoringEngine>());
+
 // 3. Register Event Bus
 builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
 
@@ -246,4 +251,25 @@ eventBus.RegisterSubscriber(new SubscriptionRegistration
     DeliveryOrder = 4
 });
 
+// Register ScoringEngine as publisher and subscriber
+eventBus.RegisterPublisher(new PublisherRegistration
+{
+    PublisherId = "SCORING_ENGINE",
+    AuthorizedEventTypes = [
+        "SCORE_CALCULATED",
+        "RANK_ASSIGNED",
+        "MISSION_EVALUATION_COMPLETED"
+    ]
+});
+
+eventBus.RegisterSubscriber(new SubscriptionRegistration
+{
+    SubscriberId = "SCORING_ENGINE",
+    Type = SubscriptionType.Type,
+    TargetEventType = ArchitectsJourney.Application.Events.EventTypes.System.MissionCompleted,
+    RequiresAcknowledgement = true,
+    DeliveryOrder = 5
+});
+
 app.Run();
+
