@@ -4,6 +4,7 @@ using ArchitectsJourney.Engines.Game;
 using ArchitectsJourney.Engines.Metric;
 using ArchitectsJourney.Engines.Rule;
 using ArchitectsJourney.Engines.Rule.Parsing;
+using ArchitectsJourney.Engines.Technology;
 using ArchitectsJourney.Infrastructure.EventBus;
 using ArchitectsJourney.Infrastructure.MissionLoading;
 using ArchitectsJourney.Infrastructure.Persistence;
@@ -57,6 +58,13 @@ builder.Services.AddSingleton<IArchitectureValidator, ArchitectsJourney.Infrastr
 builder.Services.AddSingleton<ArchitectureEngine>();
 builder.Services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<ArchitectureEngine>());
 
+builder.Services.AddSingleton<ITechnologyValidator, ArchitectsJourney.Infrastructure.Technology.TechnologyValidator>();
+builder.Services.AddSingleton<TechnologyHandbookEngine>();
+builder.Services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<TechnologyHandbookEngine>());
+
+builder.Services.AddSingleton<ArchitectsJourney.Engines.Mission.MissionEngine>();
+builder.Services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<ArchitectsJourney.Engines.Mission.MissionEngine>());
+
 // 3. Register Event Bus
 builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
 
@@ -109,7 +117,8 @@ eventBus.RegisterPublisher(new PublisherRegistration
     AuthorizedEventTypes = [
         ArchitectsJourney.Application.Events.EventTypes.Rule.DecisionProcessed,
         ArchitectsJourney.Application.Events.EventTypes.Rule.QuestionProcessed,
-        ArchitectsJourney.Application.Events.EventTypes.Rule.DerivedRuleTriggered
+        ArchitectsJourney.Application.Events.EventTypes.Rule.DerivedRuleTriggered,
+        ArchitectsJourney.Application.Events.EventTypes.Technology.Discovered
     ]
 });
 eventBus.RegisterSubscriber(new SubscriptionRegistration
@@ -167,6 +176,74 @@ eventBus.RegisterSubscriber(new SubscriptionRegistration
     TargetEventType = ArchitectsJourney.Application.Events.EventTypes.Architecture.Changed,
     RequiresAcknowledgement = true,
     DeliveryOrder = 2
+});
+
+// Register TechnologyHandbookEngine as publisher and subscriber
+eventBus.RegisterPublisher(new PublisherRegistration
+{
+    PublisherId = "TECHNOLOGY_ENGINE",
+    AuthorizedEventTypes = [
+        ArchitectsJourney.Application.Events.EventTypes.Technology.Unlocked,
+        ArchitectsJourney.Application.Events.EventTypes.Technology.ConflictDetected,
+        ArchitectsJourney.Application.Events.EventTypes.Technology.UnavailableUsed
+    ]
+});
+
+// Note: Subscriptions for TECHNOLOGY_ENGINE
+eventBus.RegisterSubscriber(new SubscriptionRegistration
+{
+    SubscriberId = "TECHNOLOGY_ENGINE",
+    Type = SubscriptionType.Type,
+    TargetEventType = ArchitectsJourney.Application.Events.EventTypes.Technology.Discovered,
+    RequiresAcknowledgement = true,
+    DeliveryOrder = 2
+});
+
+eventBus.RegisterSubscriber(new SubscriptionRegistration
+{
+    SubscriberId = "TECHNOLOGY_ENGINE",
+    Type = SubscriptionType.Type,
+    TargetEventType = ArchitectsJourney.Application.Events.EventTypes.Architecture.Changed,
+    RequiresAcknowledgement = true,
+    DeliveryOrder = 3
+});
+
+// Register MissionEngine as publisher and subscriber
+eventBus.RegisterPublisher(new PublisherRegistration
+{
+    PublisherId = "MISSION_ENGINE",
+    AuthorizedEventTypes = [
+        "MISSION_OBJECTIVE_COMPLETED",
+        "MISSION_OBJECTIVE_FAILED",
+        ArchitectsJourney.Application.Events.EventTypes.System.MissionCompleted
+    ]
+});
+
+eventBus.RegisterSubscriber(new SubscriptionRegistration
+{
+    SubscriberId = "MISSION_ENGINE",
+    Type = SubscriptionType.Type,
+    TargetEventType = ArchitectsJourney.Application.Events.EventTypes.Rule.DecisionProcessed,
+    RequiresAcknowledgement = true,
+    DeliveryOrder = 4
+});
+
+eventBus.RegisterSubscriber(new SubscriptionRegistration
+{
+    SubscriberId = "MISSION_ENGINE",
+    Type = SubscriptionType.Type,
+    TargetEventType = ArchitectsJourney.Application.Events.EventTypes.Metric.Updated,
+    RequiresAcknowledgement = true,
+    DeliveryOrder = 4
+});
+
+eventBus.RegisterSubscriber(new SubscriptionRegistration
+{
+    SubscriberId = "MISSION_ENGINE",
+    Type = SubscriptionType.Type,
+    TargetEventType = ArchitectsJourney.Application.Events.EventTypes.Architecture.Changed,
+    RequiresAcknowledgement = true,
+    DeliveryOrder = 4
 });
 
 app.Run();

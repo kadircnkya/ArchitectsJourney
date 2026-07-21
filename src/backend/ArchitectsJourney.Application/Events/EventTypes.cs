@@ -55,9 +55,12 @@ public static class EventTypes
     public static class Technology
     {
         public const string Discovered = "TECHNOLOGY_DISCOVERED";
+        public const string Unlocked = "TECHNOLOGY_UNLOCKED";
         public const string Selected = "TECHNOLOGY_SELECTED";
         public const string HandbookEntryCreated = "HANDBOOK_ENTRY_CREATED";
         public const string HandbookEntryEnriched = "HANDBOOK_ENTRY_ENRICHED";
+        public const string ConflictDetected = "TECHNOLOGY_CONFLICT_DETECTED";
+        public const string UnavailableUsed = "UNAVAILABLE_TECHNOLOGY_USED";
     }
 
     // ──────────────────────────────────────────────────────────────────────────

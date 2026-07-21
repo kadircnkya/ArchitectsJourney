@@ -30,4 +30,7 @@ public sealed class MissionDto
 
     [JsonPropertyName("rules")]
     public IReadOnlyList<MissionRuleDto> Rules { get; init; } = Array.Empty<MissionRuleDto>();
+
+    [JsonPropertyName("objectives")]
+    public IReadOnlyList<MissionObjectiveDto> Objectives { get; init; } = Array.Empty<MissionObjectiveDto>();
 }

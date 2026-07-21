@@ -22,7 +22,8 @@ public sealed class MissionBuilder : IMissionBuilder
             InitialNodes = dto.InitialNodes.Select(BuildNode).ToList(),
             InitialEdges = dto.InitialEdges.Select(BuildEdge).ToList(),
             DecisionPoints = dto.DecisionPoints.Select(BuildDecisionPoint).ToList(),
-            Rules = dto.Rules.Select(BuildRule).ToList()
+            Rules = dto.Rules.Select(BuildRule).ToList(),
+            Objectives = dto.Objectives.Select(BuildObjective).ToList()
         };
     }
 
@@ -72,5 +73,20 @@ public sealed class MissionBuilder : IMissionBuilder
         Trigger = dto.Trigger,
         Condition = dto.Condition,
         Effects = dto.Effects.ToList()
+    };
+
+    private MissionObjectiveDefinition BuildObjective(MissionObjectiveDto dto) => new MissionObjectiveDefinition
+    {
+        Id = dto.Id,
+        Description = dto.Description,
+        Conditions = dto.Conditions.Select(BuildObjectiveCondition).ToList()
+    };
+
+    private ObjectiveCondition BuildObjectiveCondition(ObjectiveConditionDto dto) => new ObjectiveCondition
+    {
+        Type = dto.Type,
+        Target = dto.Target,
+        Operator = dto.Operator,
+        Value = dto.Value
     };
 }

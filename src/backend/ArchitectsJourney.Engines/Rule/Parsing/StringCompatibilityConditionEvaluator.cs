@@ -28,7 +28,7 @@ public sealed class StringCompatibilityConditionEvaluator : IConditionEvaluator
         if (clause.StartsWith("tech:", StringComparison.OrdinalIgnoreCase))
         {
             var tech = clause.Substring(5).Trim();
-            return playthrough.UnlockedTechnologies.Contains(tech);
+            return playthrough.DiscoveredTechnologies.Contains(tech);
         }
         if (clause.StartsWith("metric:", StringComparison.OrdinalIgnoreCase))
         {

@@ -68,6 +68,7 @@ public class RuleEngineTests
             InitialNodes = [],
             InitialEdges = [],
             DecisionPoints = [],
+            Objectives = [],
             Rules = [
                 new MissionRuleDefinition
                 {
@@ -82,7 +83,7 @@ public class RuleEngineTests
 
         var playthrough = new Playthrough(Guid.NewGuid(), "m1");
         playthrough.InitializeMetrics(new Dictionary<MetricType, int> { { MetricType.Scalability, 60 } });
-        playthrough.UnlockTechnology("Docker");
+        playthrough.DiscoverTechnology("Docker");
         playthroughRepo.CurrentPlaythrough = playthrough;
 
         var context = new SessionContext { SessionId = Guid.NewGuid(), MissionId = "m1", PlaythroughId = playthrough.Id, PlayerId = Guid.NewGuid() };
@@ -132,6 +133,7 @@ public class RuleEngineTests
             InitialNodes = [],
             InitialEdges = [],
             DecisionPoints = [],
+            Objectives = [],
             Rules = [
                 new MissionRuleDefinition
                 {
@@ -190,6 +192,7 @@ public class RuleEngineTests
             InitialNodes = [],
             InitialEdges = [],
             DecisionPoints = [],
+            Objectives = [],
             Rules = [
                 new MissionRuleDefinition
                 {
@@ -255,6 +258,7 @@ public class RuleEngineTests
             InitialNodes = [],
             InitialEdges = [],
             DecisionPoints = [],
+            Objectives = [],
             Rules = [
                 new MissionRuleDefinition
                 {
@@ -314,6 +318,7 @@ public class RuleEngineTests
             InitialNodes = [],
             InitialEdges = [],
             DecisionPoints = [],
+            Objectives = [],
             Rules = [
                 new MissionRuleDefinition
                 {
@@ -383,6 +388,7 @@ public class RuleEngineTests
             InitialNodes = [],
             InitialEdges = [],
             DecisionPoints = [],
+            Objectives = [],
             Rules = [
                 new MissionRuleDefinition
                 {

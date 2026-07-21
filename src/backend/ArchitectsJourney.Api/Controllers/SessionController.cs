@@ -59,7 +59,8 @@ public sealed class SessionController : ControllerBase
                 InitialNodes = [],
                 InitialEdges = [],
                 DecisionPoints = [],
-                Rules = []
+                Rules = [],
+                Objectives = []
             };
             await _missionRepository.SaveAsync(seedMission, cancellationToken);
         }
@@ -150,6 +151,7 @@ public sealed class SessionController : ControllerBase
                 InitialNodes = [],
                 InitialEdges = [],
                 Rules = [],
+                Objectives = [],
                 DecisionPoints = [
                     new DecisionPoint("dp_monolith")
                     {

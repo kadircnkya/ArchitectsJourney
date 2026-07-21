@@ -40,3 +40,13 @@ public sealed record MetricBoundsEnforcedEvent : DomainEvent
     public required int AttemptedValue { get; init; }
     public required int EnforcedValue { get; init; }
 }
+
+public sealed record MetricsUpdatedEvent : DomainEvent
+{
+    public override string EventType => EventTypes.Metric.Updated;
+    public override EventCategory EventCategory => EventCategory.Metric;
+    public override string SchemaVersion => "1.0";
+    public override EventPriority Priority => EventPriority.Domain;
+    public override string ProducerId => "METRIC_ENGINE";
+}
+

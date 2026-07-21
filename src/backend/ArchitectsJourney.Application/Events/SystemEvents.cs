@@ -50,3 +50,34 @@ public sealed record CheckpointCreatedEvent : DomainEvent
 
     public required Guid CheckpointId { get; init; }
 }
+
+public sealed record MissionObjectiveCompletedEvent : DomainEvent
+{
+    public override string EventType => "MISSION_OBJECTIVE_COMPLETED";
+    public override EventCategory EventCategory => EventCategory.System;
+    public override string SchemaVersion => "1.0";
+    public override EventPriority Priority => EventPriority.Domain;
+    public override string ProducerId => "MISSION_ENGINE";
+
+    public required string ObjectiveId { get; init; }
+}
+
+public sealed record MissionObjectiveFailedEvent : DomainEvent
+{
+    public override string EventType => "MISSION_OBJECTIVE_FAILED";
+    public override EventCategory EventCategory => EventCategory.System;
+    public override string SchemaVersion => "1.0";
+    public override EventPriority Priority => EventPriority.Domain;
+    public override string ProducerId => "MISSION_ENGINE";
+
+    public required string ObjectiveId { get; init; }
+}
+
+public sealed record MissionCompletedEvent : DomainEvent
+{
+    public override string EventType => EventTypes.System.MissionCompleted;
+    public override EventCategory EventCategory => EventCategory.System;
+    public override string SchemaVersion => "1.0";
+    public override EventPriority Priority => EventPriority.Domain;
+    public override string ProducerId => "MISSION_ENGINE";
+}

@@ -19,17 +19,24 @@ public sealed record ArchitectureEdgeSnapshot
     public required string Communication { get; init; }
 }
 
+public sealed record MissionObjectiveSnapshot
+{
+    public required string Id { get; init; }
+    public required string State { get; init; }
+}
+
 public sealed record PlaythroughStateSnapshot
 {
     public required Guid PlaythroughId { get; init; }
     public required string MissionId { get; init; }
     public required string CurrentPhase { get; init; }
     public required IReadOnlyList<string> ResolvedDecisions { get; init; }
-    public required IReadOnlyList<string> UnlockedTechnologies { get; init; }
+    public required IReadOnlyList<string> DiscoveredTechnologies { get; init; }
     public required IReadOnlyDictionary<string, int> CurrentMetrics { get; init; }
     public required IReadOnlyList<ArchitectsJourney.Domain.ValueObjects.MetricHistoryEntry> MetricHistory { get; init; }
     public required IReadOnlyList<ArchitectureNodeSnapshot> Nodes { get; init; }
     public required IReadOnlyList<ArchitectureEdgeSnapshot> Edges { get; init; }
+    public required IReadOnlyList<MissionObjectiveSnapshot> Objectives { get; init; }
 }
 
 /// <summary>
@@ -40,11 +47,12 @@ public sealed record PlaythroughStateSnapshot
 public sealed class Playthrough : AggregateRoot<Guid>
 {
     private readonly List<string> _resolvedDecisions = [];
-    private readonly List<string> _unlockedTechnologies = [];
+    private readonly HashSet<string> _discoveredTechnologies = [];
     private readonly Dictionary<MetricType, int> _metrics = [];
     private readonly List<ArchitectsJourney.Domain.ValueObjects.MetricHistoryEntry> _metricHistory = [];
     private readonly List<ArchitectsJourney.Domain.Entities.ArchitectureNode> _nodes = [];
     private readonly List<ArchitectsJourney.Domain.ValueObjects.ArchitectureEdge> _edges = [];
+    private readonly List<ArchitectsJourney.Domain.Entities.MissionObjective> _objectives = [];
 
     public Playthrough(Guid id, string missionId) : base(id)
     {
@@ -55,11 +63,12 @@ public sealed class Playthrough : AggregateRoot<Guid>
     public string MissionId { get; private set; }
     public MissionPhase CurrentPhase { get; private set; }
     public IReadOnlyList<string> ResolvedDecisions => _resolvedDecisions.AsReadOnly();
-    public IReadOnlyList<string> UnlockedTechnologies => _unlockedTechnologies.AsReadOnly();
+    public IReadOnlySet<string> DiscoveredTechnologies => _discoveredTechnologies;
     public IReadOnlyDictionary<MetricType, int> Metrics => _metrics.AsReadOnly();
     public IReadOnlyList<ArchitectsJourney.Domain.ValueObjects.MetricHistoryEntry> MetricHistory => _metricHistory.AsReadOnly();
     public IReadOnlyList<ArchitectsJourney.Domain.Entities.ArchitectureNode> Nodes => _nodes.AsReadOnly();
     public IReadOnlyList<ArchitectsJourney.Domain.ValueObjects.ArchitectureEdge> Edges => _edges.AsReadOnly();
+    public IReadOnlyList<ArchitectsJourney.Domain.Entities.MissionObjective> Objectives => _objectives.AsReadOnly();
 
     public void InitializeMetrics(IReadOnlyDictionary<MetricType, int> initialMetrics)
     {
@@ -82,12 +91,9 @@ public sealed class Playthrough : AggregateRoot<Guid>
         _metricHistory.Add(entry);
     }
 
-    public void UnlockTechnology(string technologyId)
+    public void DiscoverTechnology(string technologyId)
     {
-        if (!_unlockedTechnologies.Contains(technologyId))
-        {
-            _unlockedTechnologies.Add(technologyId);
-        }
+        _discoveredTechnologies.Add(technologyId);
     }
 
     public void ResolveDecision(string decisionPointId, string optionId)
@@ -162,13 +168,36 @@ public sealed class Playthrough : AggregateRoot<Guid>
         node?.UpdateTechnology(technologyId);
     }
 
+    public void InitializeObjectives(IEnumerable<string> objectiveIds)
+    {
+        ArgumentNullException.ThrowIfNull(objectiveIds);
+
+        _objectives.Clear();
+        foreach (var id in objectiveIds)
+        {
+            _objectives.Add(new ArchitectsJourney.Domain.Entities.MissionObjective(id));
+        }
+    }
+
+    public void CompleteObjective(string objectiveId)
+    {
+        var obj = _objectives.FirstOrDefault(o => o.Id == objectiveId);
+        obj?.Complete();
+    }
+
+    public void FailObjective(string objectiveId)
+    {
+        var obj = _objectives.FirstOrDefault(o => o.Id == objectiveId);
+        obj?.Fail();
+    }
+
     public PlaythroughStateSnapshot TakeSnapshot() => new()
     {
         PlaythroughId = Id,
         MissionId = MissionId,
         CurrentPhase = CurrentPhase.ToString(),
         ResolvedDecisions = [.. _resolvedDecisions],
-        UnlockedTechnologies = [.. _unlockedTechnologies],
+        DiscoveredTechnologies = [.. _discoveredTechnologies],
         CurrentMetrics = _metrics.ToDictionary(k => k.Key.ToString(), v => v.Value),
         MetricHistory = [.. _metricHistory],
         Nodes = _nodes.Select(n => new ArchitectureNodeSnapshot
@@ -184,6 +213,11 @@ public sealed class Playthrough : AggregateRoot<Guid>
             Target = e.Target,
             Type = e.Type.ToString(),
             Communication = e.Communication.ToString()
+        }).ToList(),
+        Objectives = _objectives.Select(o => new MissionObjectiveSnapshot
+        {
+            Id = o.Id,
+            State = o.State.ToString()
         }).ToList()
     };
 
@@ -196,8 +230,8 @@ public sealed class Playthrough : AggregateRoot<Guid>
         _resolvedDecisions.Clear();
         _resolvedDecisions.AddRange(snapshot.ResolvedDecisions);
 
-        _unlockedTechnologies.Clear();
-        _unlockedTechnologies.AddRange(snapshot.UnlockedTechnologies);
+        _discoveredTechnologies.Clear();
+        foreach(var tech in snapshot.DiscoveredTechnologies) _discoveredTechnologies.Add(tech);
 
         _metrics.Clear();
         foreach (var kvp in snapshot.CurrentMetrics)
@@ -230,6 +264,20 @@ public sealed class Playthrough : AggregateRoot<Guid>
                 {
                     _edges.Add(new ArchitectsJourney.Domain.ValueObjects.ArchitectureEdge(edgeSnap.Source, edgeSnap.Target, edgeType, commType));
                 }
+            }
+        }
+
+        _objectives.Clear();
+        if (snapshot.Objectives != null)
+        {
+            foreach (var objSnap in snapshot.Objectives)
+            {
+                var obj = new ArchitectsJourney.Domain.Entities.MissionObjective(objSnap.Id);
+                if (Enum.TryParse<ArchitectsJourney.Domain.Entities.ObjectiveState>(objSnap.State, out var state))
+                {
+                    obj.SetState(state);
+                }
+                _objectives.Add(obj);
             }
         }
     }

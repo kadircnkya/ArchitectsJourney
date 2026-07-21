@@ -37,6 +37,9 @@ public sealed class Mission : AggregateRoot<string>
 
     [JsonPropertyName("rules")]
     public required IReadOnlyList<MissionRuleDefinition> Rules { get; init; }
+
+    [JsonPropertyName("objectives")]
+    public required IReadOnlyList<MissionObjectiveDefinition> Objectives { get; init; }
 }
 
 /// <summary>

@@ -11,11 +11,14 @@ using ArchitectsJourney.Engines.Game;
 using ArchitectsJourney.Engines.Metric;
 using ArchitectsJourney.Engines.Rule;
 using ArchitectsJourney.Engines.Rule.Parsing;
+using ArchitectsJourney.Engines.Technology;
 using ArchitectsJourney.Infrastructure.EventBus;
 using ArchitectsJourney.Infrastructure.EventTracker;
 using ArchitectsJourney.Infrastructure.Metrics;
+using ArchitectsJourney.Infrastructure.MissionLoading;
 using ArchitectsJourney.Infrastructure.Persistence;
 using ArchitectsJourney.Infrastructure.Architecture;
+using ArchitectsJourney.Infrastructure.Technology;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -42,6 +45,7 @@ public sealed class PlaythroughIntegrationTests
         services.AddSingleton<ILogger<RuleEngine>>(NullLogger<RuleEngine>.Instance);
         services.AddSingleton<ILogger<MetricEngine>>(NullLogger<MetricEngine>.Instance);
         services.AddSingleton<ILogger<ArchitectureEngine>>(NullLogger<ArchitectureEngine>.Instance);
+        services.AddSingleton<ILogger<TechnologyHandbookEngine>>(NullLogger<TechnologyHandbookEngine>.Instance);
         services.AddSingleton<ILogger<InMemoryEventBus>>(NullLogger<InMemoryEventBus>.Instance);
 
         // Register Subsystems with Forwarding
@@ -71,6 +75,11 @@ public sealed class PlaythroughIntegrationTests
         services.AddSingleton<IArchitectureValidator, ArchitectureValidator>();
         services.AddSingleton<ArchitectureEngine>();
         services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<ArchitectureEngine>());
+
+        services.AddSingleton<ITechnologyCatalog, InMemoryTechnologyCatalog>();
+        services.AddSingleton<ITechnologyValidator, TechnologyValidator>();
+        services.AddSingleton<TechnologyHandbookEngine>();
+        services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<TechnologyHandbookEngine>());
 
         // Event Bus
         services.AddSingleton<IEventBus, InMemoryEventBus>();
@@ -122,7 +131,8 @@ public sealed class PlaythroughIntegrationTests
                 EventTypes.Rule.DerivedRuleTriggered,
                 EventTypes.Rule.RuleExecutionAuditCreated,
                 EventTypes.Rule.BusinessEventProcessed,
-                EventTypes.Metric.DeltaApplied
+                EventTypes.Metric.DeltaApplied,
+                EventTypes.Technology.Discovered
             ]
         });
 
@@ -175,6 +185,34 @@ public sealed class PlaythroughIntegrationTests
             DeliveryOrder = 2
         });
 
+        eventBus.RegisterPublisher(new PublisherRegistration
+        {
+            PublisherId = "TECHNOLOGY_ENGINE",
+            AuthorizedEventTypes = [
+                EventTypes.Technology.Unlocked,
+                EventTypes.Technology.ConflictDetected,
+                EventTypes.Technology.UnavailableUsed
+            ]
+        });
+
+        eventBus.RegisterSubscriber(new SubscriptionRegistration
+        {
+            SubscriberId = "TECHNOLOGY_ENGINE",
+            Type = SubscriptionType.Type,
+            TargetEventType = EventTypes.Technology.Discovered,
+            RequiresAcknowledgement = true,
+            DeliveryOrder = 2
+        });
+
+        eventBus.RegisterSubscriber(new SubscriptionRegistration
+        {
+            SubscriberId = "TECHNOLOGY_ENGINE",
+            Type = SubscriptionType.Type,
+            TargetEventType = EventTypes.Architecture.Changed,
+            RequiresAcknowledgement = true,
+            DeliveryOrder = 3
+        });
+
         // 3. Seed authored mission content
         var missionRepo = provider.GetRequiredService<IMissionRepository>();
         var missionId = "m1";
@@ -196,6 +234,7 @@ public sealed class PlaythroughIntegrationTests
             },
             InitialNodes = [],
             InitialEdges = [],
+            Objectives = [],
             Rules = [],
             DecisionPoints = [
                 new DecisionPoint("dp_monolith")
@@ -295,10 +334,39 @@ public sealed class PlaythroughIntegrationTests
         Assert.Equal(75, scalability);
         Assert.Equal(50, reliability);
 
-        // Assert that a checkpoint was created
         var saveSystem = provider.GetRequiredService<ISaveSystem>();
         var checkpoint = await saveSystem.LoadLastCheckpointAsync(context.SessionId);
         Assert.NotNull(checkpoint);
         Assert.Single(checkpoint); // Only GameEngine registered as ICheckpointAware since ArchitectureEngine is stateless
+
+        // 6. Submit Technology Discovered Event
+        var techEvent = new ArchitectsJourney.Application.Events.Technology.TechnologyDiscoveredEvent
+        {
+            EventId = Guid.NewGuid(),
+            SessionId = context.SessionId,
+            PlaythroughId = context.PlaythroughId,
+            MissionId = context.MissionId,
+            CorrelationId = Guid.NewGuid(),
+            TechnologyId = "tech_microservices"
+        };
+        var publishTechResult = await eventBus.PublishAsync(techEvent);
+        Assert.True(publishTechResult.Accepted);
+
+        // Wait for asynchronous event bus to drain
+        for (int i = 0; i < 20; i++)
+        {
+            playthrough = await playthroughRepo.GetByIdAsync(context.PlaythroughId);
+            if (playthrough != null && playthrough.DiscoveredTechnologies.Contains("tech_microservices"))
+                break;
+            await Task.Delay(100);
+        }
+        
+        Assert.Contains("tech_microservices", playthrough!.DiscoveredTechnologies);
+        
+        // 7. Verify Checkpoint Restoration for Technologies
+        var snapshot = playthrough.TakeSnapshot();
+        var restoredPlaythrough = new Playthrough(snapshot.PlaythroughId, snapshot.MissionId);
+        restoredPlaythrough.Restore(snapshot);
+        Assert.Contains("tech_microservices", restoredPlaythrough.DiscoveredTechnologies);
     }
 }

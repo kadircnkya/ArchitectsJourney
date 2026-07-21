@@ -72,7 +72,7 @@ public static class ConditionEvaluator
         if (techMatch.Success)
         {
             var techId = techMatch.Groups["id"].Value;
-            return playthrough.UnlockedTechnologies.Contains(techId, StringComparer.OrdinalIgnoreCase);
+            return playthrough.DiscoveredTechnologies.Contains(techId, StringComparer.OrdinalIgnoreCase);
         }
 
         return false;

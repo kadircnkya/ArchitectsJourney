@@ -33,7 +33,7 @@ public sealed class MissionReferenceValidator : IMissionReferenceValidator
             
             if (!string.IsNullOrEmpty(node.TechnologyId))
             {
-                bool validTech = await _technologyCatalog.IsValidTechnologyAsync(node.TechnologyId, cancellationToken);
+                bool validTech = await _technologyCatalog.GetTechnologyAsync(node.TechnologyId, cancellationToken) != null;
                 if (!validTech)
                 {
                     errors.Add($"Node {node.Id} references invalid technology: {node.TechnologyId}");
