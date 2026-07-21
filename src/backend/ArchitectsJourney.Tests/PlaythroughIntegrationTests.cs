@@ -1,5 +1,6 @@
 using ArchitectsJourney.Application.Common;
 using ArchitectsJourney.Application.Contracts;
+using ArchitectsJourney.Application.Models;
 using ArchitectsJourney.Application.Events;
 using ArchitectsJourney.Application.Events.Player;
 using ArchitectsJourney.Application.Events.System;
@@ -48,6 +49,7 @@ public sealed class PlaythroughIntegrationTests
         services.AddSingleton<ILogger<ArchitectureEngine>>(NullLogger<ArchitectureEngine>.Instance);
         services.AddSingleton<ILogger<TechnologyHandbookEngine>>(NullLogger<TechnologyHandbookEngine>.Instance);
         services.AddSingleton<ILogger<ArchitectsJourney.Engines.Scoring.ScoringEngine>>(NullLogger<ArchitectsJourney.Engines.Scoring.ScoringEngine>.Instance);
+        services.AddSingleton<ILogger<ArchitectsJourney.Engines.Achievements.AchievementEngine>>(NullLogger<ArchitectsJourney.Engines.Achievements.AchievementEngine>.Instance);
         services.AddSingleton<ILogger<InMemoryEventBus>>(NullLogger<InMemoryEventBus>.Instance);
 
         // Register Subsystems with Forwarding
@@ -87,6 +89,18 @@ public sealed class PlaythroughIntegrationTests
         services.AddSingleton<IScoreCalculator, ArchitectsJourney.Infrastructure.Scoring.ScoreCalculator>();
         services.AddSingleton<ArchitectsJourney.Engines.Scoring.ScoringEngine>();
         services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<ArchitectsJourney.Engines.Scoring.ScoringEngine>());
+
+        services.AddSingleton(new AchievementOptions {
+            AvailableAchievements = [
+                new Achievement("ACH_CLD_MIG", "Cloud Migrator", "Did it", "General", 50, false, [
+                    new AchievementCondition { Type = "TECHNOLOGY_DISCOVERED", TargetId = "tech_microservices" }
+                ])
+            ],
+            LevelThresholds = new Dictionary<int, int> { { 2, 50 } }
+        });
+        services.AddSingleton<IAchievementEvaluator, ArchitectsJourney.Infrastructure.Achievements.AchievementEvaluator>();
+        services.AddSingleton<ArchitectsJourney.Engines.Achievements.AchievementEngine>();
+        services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<ArchitectsJourney.Engines.Achievements.AchievementEngine>());
 
         // Event Bus
         services.AddSingleton<IEventBus, InMemoryEventBus>();
@@ -247,6 +261,33 @@ public sealed class PlaythroughIntegrationTests
             TargetEventType = EventTypes.System.MissionCompleted,
             RequiresAcknowledgement = true,
             DeliveryOrder = 5
+        });
+
+        eventBus.RegisterPublisher(new PublisherRegistration
+        {
+            PublisherId = "ACHIEVEMENT_ENGINE",
+            AuthorizedEventTypes = [
+                "ACHIEVEMENT_UNLOCKED",
+                "EXPERIENCE_AWARDED",
+                "PLAYER_LEVEL_CHANGED"
+            ]
+        });
+
+        eventBus.RegisterSubscriber(new SubscriptionRegistration
+        {
+            SubscriberId = "ACHIEVEMENT_ENGINE",
+            Type = SubscriptionType.Type,
+            TargetEventType = "MISSION_EVALUATION_COMPLETED",
+            RequiresAcknowledgement = true,
+            DeliveryOrder = 6
+        });
+        eventBus.RegisterSubscriber(new SubscriptionRegistration
+        {
+            SubscriberId = "ACHIEVEMENT_ENGINE",
+            Type = SubscriptionType.Type,
+            TargetEventType = EventTypes.Technology.Unlocked,
+            RequiresAcknowledgement = true,
+            DeliveryOrder = 6
         });
 
         // 3. Seed authored mission content
@@ -436,5 +477,36 @@ public sealed class PlaythroughIntegrationTests
         Assert.True(postScoreRestored.EvaluationCompleted);
         Assert.Equal(playthrough.CurrentScore, postScoreRestored.CurrentScore);
         Assert.Equal(playthrough.MissionResult, postScoreRestored.MissionResult);
+        
+        // 9. Trigger Achievement Check explicitly to simulate completion evaluation
+        var evalCompleted = new MissionEvaluationCompletedEvent
+        {
+            EventId = Guid.NewGuid(),
+            SessionId = context.SessionId,
+            PlaythroughId = context.PlaythroughId,
+            MissionId = context.MissionId,
+            CorrelationId = Guid.NewGuid(),
+            MissionResult = "Success"
+        };
+        await eventBus.PublishAsync(evalCompleted);
+        
+        for (int i = 0; i < 20; i++)
+        {
+            playthrough = await playthroughRepo.GetByIdAsync(context.PlaythroughId);
+            if (playthrough != null && playthrough.UnlockedAchievements.Contains("ACH_CLD_MIG"))
+                break;
+            await Task.Delay(100);
+        }
+
+        Assert.Contains("ACH_CLD_MIG", playthrough!.UnlockedAchievements);
+        Assert.Equal(50, playthrough.ExperiencePoints);
+        Assert.Equal(2, playthrough.PlayerLevel);
+
+        var achSnapshot = playthrough.TakeSnapshot();
+        var achRestored = new Playthrough(achSnapshot.PlaythroughId, achSnapshot.MissionId);
+        achRestored.Restore(achSnapshot);
+        Assert.Contains("ACH_CLD_MIG", achRestored.UnlockedAchievements);
+        Assert.Equal(50, achRestored.ExperiencePoints);
+        Assert.Equal(2, achRestored.PlayerLevel);
     }
 }

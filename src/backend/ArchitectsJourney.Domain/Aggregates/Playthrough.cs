@@ -44,6 +44,11 @@ public sealed record PlaythroughStateSnapshot
     public DateTimeOffset? EvaluationTimestamp { get; init; }
     public string? FinalRank { get; init; }
     public string? MissionResult { get; init; }
+
+    // Progression state
+    public IReadOnlyList<string>? UnlockedAchievements { get; init; }
+    public int? PlayerLevel { get; init; }
+    public int? ExperiencePoints { get; init; }
 }
 
 /// <summary>
@@ -60,11 +65,14 @@ public sealed class Playthrough : AggregateRoot<Guid>
     private readonly List<ArchitectsJourney.Domain.Entities.ArchitectureNode> _nodes = [];
     private readonly List<ArchitectsJourney.Domain.ValueObjects.ArchitectureEdge> _edges = [];
     private readonly List<ArchitectsJourney.Domain.Entities.MissionObjective> _objectives = [];
+    private readonly HashSet<string> _unlockedAchievements = [];
 
     public Playthrough(Guid id, string missionId) : base(id)
     {
         MissionId = missionId;
         CurrentPhase = MissionPhase.ClientMeeting;
+        PlayerLevel = 1;
+        ExperiencePoints = 0;
     }
 
     public string MissionId { get; private set; }
@@ -82,6 +90,10 @@ public sealed class Playthrough : AggregateRoot<Guid>
     public DateTimeOffset? EvaluationTimestamp { get; private set; }
     public MissionRank FinalRank { get; private set; }
     public MissionResult MissionResult { get; private set; }
+    
+    public IReadOnlySet<string> UnlockedAchievements => _unlockedAchievements;
+    public int PlayerLevel { get; private set; }
+    public int ExperiencePoints { get; private set; }
 
     public void InitializeMetrics(IReadOnlyDictionary<MetricType, int> initialMetrics)
     {
@@ -226,6 +238,21 @@ public sealed class Playthrough : AggregateRoot<Guid>
         CurrentScore = 0;
     }
 
+    public void UnlockAchievement(string achievementId)
+    {
+        _unlockedAchievements.Add(achievementId);
+    }
+
+    public void AddExperience(int amount)
+    {
+        ExperiencePoints += amount;
+    }
+
+    public void UpdatePlayerLevel(int newLevel)
+    {
+        PlayerLevel = newLevel;
+    }
+
     public PlaythroughStateSnapshot TakeSnapshot() => new()
     {
         PlaythroughId = Id,
@@ -258,7 +285,10 @@ public sealed class Playthrough : AggregateRoot<Guid>
         EvaluationCompleted = EvaluationCompleted,
         EvaluationTimestamp = EvaluationTimestamp,
         FinalRank = FinalRank.ToString(),
-        MissionResult = MissionResult.ToString()
+        MissionResult = MissionResult.ToString(),
+        UnlockedAchievements = [.. _unlockedAchievements],
+        PlayerLevel = PlayerLevel,
+        ExperiencePoints = ExperiencePoints
     };
 
     public void Restore(PlaythroughStateSnapshot snapshot)
@@ -334,5 +364,14 @@ public sealed class Playthrough : AggregateRoot<Guid>
         {
             MissionResult = result;
         }
+
+        _unlockedAchievements.Clear();
+        if (snapshot.UnlockedAchievements != null)
+        {
+            foreach (var ach in snapshot.UnlockedAchievements) _unlockedAchievements.Add(ach);
+        }
+        
+        PlayerLevel = snapshot.PlayerLevel ?? 1;
+        ExperiencePoints = snapshot.ExperiencePoints ?? 0;
     }
 }

@@ -115,3 +115,37 @@ public sealed record MissionEvaluationCompletedEvent : DomainEvent
     public required string MissionResult { get; init; }
 }
 
+public sealed record AchievementUnlockedEvent : DomainEvent
+{
+    public override string EventType => "ACHIEVEMENT_UNLOCKED";
+    public override EventCategory EventCategory => EventCategory.System;
+    public override string SchemaVersion => "1.0";
+    public override EventPriority Priority => EventPriority.Domain;
+    public override string ProducerId => "ACHIEVEMENT_ENGINE";
+
+    public required string AchievementId { get; init; }
+}
+
+public sealed record PlayerLevelChangedEvent : DomainEvent
+{
+    public override string EventType => "PLAYER_LEVEL_CHANGED";
+    public override EventCategory EventCategory => EventCategory.System;
+    public override string SchemaVersion => "1.0";
+    public override EventPriority Priority => EventPriority.Domain;
+    public override string ProducerId => "ACHIEVEMENT_ENGINE";
+
+    public required int OldLevel { get; init; }
+    public required int NewLevel { get; init; }
+}
+
+public sealed record ExperienceAwardedEvent : DomainEvent
+{
+    public override string EventType => "EXPERIENCE_AWARDED";
+    public override EventCategory EventCategory => EventCategory.System;
+    public override string SchemaVersion => "1.0";
+    public override EventPriority Priority => EventPriority.Domain;
+    public override string ProducerId => "ACHIEVEMENT_ENGINE";
+
+    public required int Amount { get; init; }
+    public required string Reason { get; init; }
+}

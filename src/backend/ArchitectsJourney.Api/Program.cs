@@ -1,4 +1,5 @@
 using ArchitectsJourney.Application.Contracts;
+using ArchitectsJourney.Application.Models;
 using ArchitectsJourney.Engines.Architecture;
 using ArchitectsJourney.Engines.Game;
 using ArchitectsJourney.Engines.Metric;
@@ -69,6 +70,11 @@ builder.Services.AddSingleton<ArchitectsJourney.Application.Models.EvaluationOpt
 builder.Services.AddSingleton<IScoreCalculator, ArchitectsJourney.Infrastructure.Scoring.ScoreCalculator>();
 builder.Services.AddSingleton<ArchitectsJourney.Engines.Scoring.ScoringEngine>();
 builder.Services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<ArchitectsJourney.Engines.Scoring.ScoringEngine>());
+
+builder.Services.AddSingleton<AchievementOptions>();
+builder.Services.AddSingleton<IAchievementEvaluator, ArchitectsJourney.Infrastructure.Achievements.AchievementEvaluator>();
+builder.Services.AddSingleton<ArchitectsJourney.Engines.Achievements.AchievementEngine>();
+builder.Services.AddSingleton<IGameSubsystem>(sp => sp.GetRequiredService<ArchitectsJourney.Engines.Achievements.AchievementEngine>());
 
 // 3. Register Event Bus
 builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
@@ -269,6 +275,58 @@ eventBus.RegisterSubscriber(new SubscriptionRegistration
     TargetEventType = ArchitectsJourney.Application.Events.EventTypes.System.MissionCompleted,
     RequiresAcknowledgement = true,
     DeliveryOrder = 5
+});
+
+// Register AchievementEngine as publisher and subscriber
+eventBus.RegisterPublisher(new PublisherRegistration
+{
+    PublisherId = "ACHIEVEMENT_ENGINE",
+    AuthorizedEventTypes = [
+        "ACHIEVEMENT_UNLOCKED",
+        "EXPERIENCE_AWARDED",
+        "PLAYER_LEVEL_CHANGED"
+    ]
+});
+
+eventBus.RegisterSubscriber(new SubscriptionRegistration
+{
+    SubscriberId = "ACHIEVEMENT_ENGINE",
+    Type = SubscriptionType.Type,
+    TargetEventType = "MISSION_EVALUATION_COMPLETED",
+    RequiresAcknowledgement = true,
+    DeliveryOrder = 6
+});
+eventBus.RegisterSubscriber(new SubscriptionRegistration
+{
+    SubscriberId = "ACHIEVEMENT_ENGINE",
+    Type = SubscriptionType.Type,
+    TargetEventType = "MISSION_OBJECTIVE_COMPLETED",
+    RequiresAcknowledgement = true,
+    DeliveryOrder = 6
+});
+eventBus.RegisterSubscriber(new SubscriptionRegistration
+{
+    SubscriberId = "ACHIEVEMENT_ENGINE",
+    Type = SubscriptionType.Type,
+    TargetEventType = ArchitectsJourney.Application.Events.EventTypes.Technology.Unlocked,
+    RequiresAcknowledgement = true,
+    DeliveryOrder = 6
+});
+eventBus.RegisterSubscriber(new SubscriptionRegistration
+{
+    SubscriberId = "ACHIEVEMENT_ENGINE",
+    Type = SubscriptionType.Type,
+    TargetEventType = ArchitectsJourney.Application.Events.EventTypes.Architecture.NodeAdded,
+    RequiresAcknowledgement = true,
+    DeliveryOrder = 6
+});
+eventBus.RegisterSubscriber(new SubscriptionRegistration
+{
+    SubscriberId = "ACHIEVEMENT_ENGINE",
+    Type = SubscriptionType.Type,
+    TargetEventType = "RANK_ASSIGNED",
+    RequiresAcknowledgement = true,
+    DeliveryOrder = 6
 });
 
 app.Run();
